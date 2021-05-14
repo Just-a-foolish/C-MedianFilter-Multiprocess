@@ -33,11 +33,43 @@ struct rgb{
 typedef struct rgb RGB;
 
 /*---------------------------------------------------------------------*/
+int matrizAuxBlue[500];
+int matrizAuxGreen[500];
+int matrizAuxRed[500];
 
 int compare_function(const void *a, const void *b){
 	int *x = (int *) a;
 	int *y = (int *) b;
 	return *x - *y;
+}
+
+void filtroMediana(int largura, int altura, RGB *vetor, int filtro){
+
+	int i, j, k, l;
+	int a = 0;
+	int indice = filtro/2;
+	int meio = ((filtro*filtro)/2);
+	int tamanhoSort = (filtro*filtro)*4;
+		
+	for(i=filtro-2; i<altura-filtro; i++){
+	  for(j=filtro-2; j<largura-filtro; j++){
+	    for(k=indice*(-1); k<=indice; k++){
+	      for(l=indice*(-1); l<=indice; l++){
+	     	matrizAuxRed[a]  =vetor[(k*largura) + (i*largura+j) + l].red;
+	     	matrizAuxGreen[a]=vetor[(k*largura) + (i*largura+j) + l].green;
+	     	matrizAuxBlue[a] =vetor[(k*largura) + (i*largura+j) + l].blue;
+	     	a++;      	
+	     }
+	  }
+	  a=0;
+	  qsort(matrizAuxRed, tamanhoSort, sizeof(*matrizAuxRed), compare_function);
+	  qsort(matrizAuxBlue, tamanhoSort, sizeof(*matrizAuxBlue), compare_function);
+	  qsort(matrizAuxGreen, tamanhoSort, sizeof(*matrizAuxGreen), compare_function);
+	  vetor[i * largura + j].red = matrizAuxRed[meio];
+	  vetor[i * largura + j].blue = matrizAuxBlue[meio];
+	  vetor[i * largura + j].green = matrizAuxGreen[meio];	  
+	 }
+	}
 }
 
 
@@ -48,14 +80,12 @@ int main(int argc, char **argv ){
 	RGB pixel;
 	int i, j;
 	
-	char entrada[100] = {'b','o','r','b','o','l','e','t','a','.','b','m','p','\0'};
-	char saida[100] = {'t','e','s','t','e','\0'};
+	char entrada[20] = {'b','o','r','b','o','l','e','t','a','.','b','m','p','\0'};
+	char saida[20] = {'t','e','s','t','e','\0'};
 	int quantProcessos = 1;
 	int mascara = 3;
 	
-	//matriz teste para sort de mascara 3x3
-	int matrizAux[9];
-	
+
 	
 	/*printf("Digite o nome do arquivo de entrada:\n");
 	scanf("%s", entrada);
@@ -107,59 +137,10 @@ int main(int argc, char **argv ){
 			fwrite(&aux, sizeof(unsigned char), 1, fout);
 		}
 	}
-	
-	
-	
-	// aplica o filtro mediana
-	for(i=1; i<cabecalho.altura-1; i++){
-		for(j=1; j<cabecalho.largura-1; j++){
-			//azul
-			matrizAux[0] = vetor[(i-1) * cabecalho.largura + (j-1)].blue;
-			matrizAux[1] = vetor[(i-1) * cabecalho.largura + j].blue;
-			matrizAux[2] = vetor[(i-1) * cabecalho.largura + (j+1)].blue;
-			matrizAux[3] = vetor[i * cabecalho.largura + (j-1)].blue;
-			matrizAux[4] = vetor[i * cabecalho.largura + j].blue;
-			matrizAux[5] = vetor[i * cabecalho.largura + (j+1)].blue;
-			matrizAux[6] = vetor[(i+1) * cabecalho.largura + (j-1)].blue;
-			matrizAux[7] = vetor[(i+1) * cabecalho.largura + j].blue;
-			matrizAux[8] = vetor[(i+1) * cabecalho.largura + (j+1)].blue;
-						
-			qsort(matrizAux, sizeof(matrizAux), sizeof(*matrizAux),compare_function);
-			
-			vetor[i * cabecalho.largura + j].blue = matrizAux[4];
-			//verde
-			matrizAux[0] = vetor[(i-1) * cabecalho.largura + (j-1)].green;
-			matrizAux[1] = vetor[(i-1) * cabecalho.largura + j].green;
-			matrizAux[2] = vetor[(i-1) * cabecalho.largura + (j+1)].green;
-			matrizAux[3] = vetor[i * cabecalho.largura + (j-1)].green;
-			matrizAux[4] = vetor[i * cabecalho.largura + j].green;
-			matrizAux[5] = vetor[i * cabecalho.largura + (j+1)].green;
-			matrizAux[6] = vetor[(i+1) * cabecalho.largura + (j-1)].green;
-			matrizAux[7] = vetor[(i+1) * cabecalho.largura + j].green;
-			matrizAux[8] = vetor[(i+1) * cabecalho.largura + (j+1)].green;
-			
-			qsort(matrizAux, sizeof(matrizAux), sizeof(*matrizAux),compare_function);			
-			
-			vetor[i * cabecalho.largura + j].green = matrizAux[4];
-			//vermelho
-			matrizAux[0] = vetor[(i-1) * cabecalho.largura + (j-1)].red;
-			matrizAux[1] = vetor[(i-1) * cabecalho.largura + j].red;
-			matrizAux[2] = vetor[(i-1) * cabecalho.largura + (j+1)].red;
-			matrizAux[3] = vetor[i * cabecalho.largura + (j-1)].red;
-			matrizAux[4] = vetor[i * cabecalho.largura + j].red;
-			matrizAux[5] = vetor[i * cabecalho.largura + (j+1)].red;
-			matrizAux[6] = vetor[(i+1) * cabecalho.largura + (j-1)].red;
-			matrizAux[7] = vetor[(i+1) * cabecalho.largura + j].red;
-			matrizAux[8] = vetor[(i+1) * cabecalho.largura + (j+1)].red;
-			
-			qsort(matrizAux, sizeof(matrizAux), sizeof(*matrizAux),compare_function);			
-			
-			vetor[i * cabecalho.largura + j].red = matrizAux[4];		
-		}
-	}
-	
-	
 		
+	// aplica o filtro mediana 3x3
+	filtroMediana(cabecalho.largura, cabecalho.altura, vetor, 3);
+			
 	// escreve o vetor com o filtro aplicado no arquivo de saída
 	for(i=0; i<cabecalho.altura; i++){
 		int ali = (cabecalho.largura * 3) % 4;		
@@ -176,11 +157,18 @@ int main(int argc, char **argv ){
 			fwrite(&aux, sizeof(unsigned char), 1, fout);
 		}
 	}
-		
-	//getchar();
+	
+	
+	//removendo essas 3 linhas não ocorre o erro	
+
+
+	
+
 	free(vetor);
 	fclose(fin);
 	fclose(fout);
+	
+		
 }
 /*---------------------------------------------------------------------*/
 
