@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/wait.h>
+#include <sys/shm.h>
 
 /*---------------------------------------------------------------------*/
 #pragma pack(1)
@@ -35,26 +37,25 @@ typedef struct rgb RGB;
 
 /*---------------------------------------------------------------------*/
 
-//talvez precise jogar esses caras dentro da função e usar malloc
-int matrizAuxBlue[500];
-int matrizAuxGreen[500];
-int matrizAuxRed[500];
-
 int compare_function(const void *a, const void *b){
 	int *x = (int *) a;
 	int *y = (int *) b;
 	return *x - *y;
 }
 
-void filtroMediana(int largura, int inicio, int altura, RGB *vetor, int filtro){
+void filtroMediana(int largura, int inicio, int final, RGB *vetor, int filtro){
 
+	int matrizAuxBlue[500];
+	int matrizAuxGreen[500];
+	int matrizAuxRed[500];
+	
 	int i, j, k, l;
 	int a = 0;
 	int indice = filtro/2;
 	int meio = ((filtro*filtro)/2);
 	int tamanhoSort = (filtro*filtro)*4;
 		
-	for(i=inicio+4; i<altura-filtro; i++){
+	for(i=inicio+4; i<final-filtro; i++){
 	  for(j=filtro-2; j<largura-filtro; j++){
 	    for(k=indice*(-1); k<=indice; k++){
 	      for(l=indice*(-1); l<=indice; l++){
@@ -81,13 +82,13 @@ int main(int argc, char **argv ){
 	CABECALHO cabecalho;
 	RGB pixel;
 	int i, j;
+
 	
-	
-	// DADOS DE INICIALIZAÇÃO DO ALGORITMO	
+	// DADOS DE INICIALIZAÇÃO
 	char entrada[20] = {'b','o','r','b','o','l','e','t','a','.','b','m','p','\0'};
 	char saida[20] = {'t','e','s','t','e','\0'};
-	int quantProcessos = 2;
-	int tamanhoMascara = 3;
+	int quantProcessos = 3;
+	int tamanhoMascara = 7;
 	
 /*---------------------------------------------------------------------*/
 			
@@ -109,9 +110,10 @@ int main(int argc, char **argv ){
 	fread(&cabecalho, sizeof(CABECALHO), 1, fin);
 	fwrite(&cabecalho, sizeof(CABECALHO), 1, fout);
 	
-
-	// aloca a matriz da imagem em um vetor
-	RGB *vetor = (RGB *) malloc(cabecalho.altura * cabecalho.largura * sizeof(RGB)); 
+	// gera espaço de memória compartilhada que irá receber a imagem
+	int chave = 4;
+	int shmid = shmget(chave, cabecalho.altura*cabecalho.largura*sizeof(RGB), IPC_CREAT | 0600); 
+	RGB *vetor = shmat(shmid, 0, 0);
 	
 	for(i=0; i<cabecalho.altura; i++){
 		int ali = (cabecalho.largura * 3) % 4;
@@ -130,39 +132,77 @@ int main(int argc, char **argv ){
 		}
 	}
 		
-		
-	if(quantProcessos > 1){
+	//SEQUENCIAL	
+	if(quantProcessos == 1){
+		filtroMediana(cabecalho.largura, 0 ,cabecalho.altura, vetor, tamanhoMascara);
+	}
 	
 	 //2 PROCESSOS
-	 if(quantProcessos == 2){
-		int id = fork();
-		if(id > 0){
-		filtroMediana(cabecalho.largura, 200 ,cabecalho.altura, vetor, tamanhoMascara);
+	if(quantProcessos == 2){
+		int pid;
+		pid = fork();
+		
+		if(pid > 0){
+		filtroMediana(cabecalho.largura,  0 ,cabecalho.altura/2+5, vetor, tamanhoMascara);
+		wait(NULL);
 		} else {
-		filtroMediana(cabecalho.largura, 0 ,cabecalho.altura/2, vetor, tamanhoMascara);
-		}				
+		filtroMediana(cabecalho.largura, 200 ,cabecalho.altura, vetor, tamanhoMascara);
+		}			
 	}
 	
 	//3 PROCESSOS
-	if(quantProcessos == 3){
-	
-	printf("3 processos");
-	
-	
+	if(quantProcessos == 3){	
+	int pid;
+
+	pid = fork();
+
+		if (pid > 0){
+			pid = fork();
+			if ( pid > 0 ){
+				filtroMediana(cabecalho.largura,  0 ,138, vetor, 				tamanhoMascara);
+				wait(NULL);
+				wait(NULL);
+			}
+			else{
+			filtroMediana(cabecalho.largura, 134 , 272 , vetor, tamanhoMascara);
+			}
+		}		
+		else{
+		filtroMediana(cabecalho.largura, 266 , 400 , vetor, tamanhoMascara);
+		}
 	} 
 	
 	//4 PROCESSOS
-	if(quantProcessos == 4){
+	if(quantProcessos == 4){	
 	
-	
-	printf("4 processos");
-	
-	
+	int pid;
+
+	pid = fork();
+
+	if (pid >0){
+		pid = fork();
+		if ( pid > 0 ){
+			pid = fork();
+			if ( pid > 0 ){
+				filtroMediana(cabecalho.largura, 0 , 105 , vetor, 					tamanhoMascara);
+				wait(NULL);
+				wait(NULL);
+				wait(NULL);
+			}
+			else{
+				filtroMediana(cabecalho.largura, 100 , 205 , vetor, 					tamanhoMascara);
+			}
+		}
+		else{
+			filtroMediana(cabecalho.largura, 200 , 305 , vetor, tamanhoMascara);
+		}
 	}
-	// SEQUENCIAL	
-	} else {
-	filtroMediana(cabecalho.largura, 0, cabecalho.altura, vetor, tamanhoMascara);	
+	else{
+		filtroMediana(cabecalho.largura, 300 , 400 , vetor, tamanhoMascara);
 	}
+	}
+	
+
 
 			
 	// escreve o vetor com o filtro aplicado no arquivo de saída
@@ -182,7 +222,7 @@ int main(int argc, char **argv ){
 		}
 	}	
 
-	free(vetor);
+	shmdt(vetor);
 	fclose(fin);
 	fclose(fout);
 	
